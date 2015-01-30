@@ -1,6 +1,7 @@
 import bs4
 import urllib.request
 import re
+import math
 
 # for retry decorator
 import time
@@ -97,7 +98,7 @@ def get_review_data(first_url, print_status=False):
     page_num = 0
     review_data = []
 
-    while url is not None and page_num < 10:
+    while url is not None:
         page_num += 1
         data = url_read_with_retry(url)
         soup = bs4.BeautifulSoup(data)
@@ -132,12 +133,33 @@ def read_review_data_from_file(fname):
     f = open(fname)
     for line in f:
         good, total, stars = [int(x) for x in line.split()]
-        review_data.append((good, total), stars)
+        review_data.append(((good, total), stars))
     f.close()
     return review_data
 
+def get_weighted_score(review_data, weight_func):
+    total_weight = 0
+    unnormalized_score = 0
+    for help, stars in review_data:
+        good, total = help
+        weight = weight_func(good, total)
+        score = weight * stars
 
-affc_first_url = 'http://www.amazon.com/Feast-Crows-Song-Fire-Thrones/product-reviews/055358202X/ref=cm_cr_pr_top_link_1?ie=UTF8&showViewpoints=0&sortBy=byRankDescending'
-review_data = get_review_data(affc_first_url, True)
+        total_weight += weight
+        unnormalized_score += score
+    return unnormalized_score / total_weight
+
+def test_weight_func(good, total):
+    # assume that a reviewer would rate their own review "helpful"
+    new_good, new_total = good + 1, total + 1
+    return new_good * new_good / new_total
+
+
+
+#affc_first_url = 'http://www.amazon.com/Feast-Crows-Song-Fire-Thrones/product-reviews/055358202X/ref=cm_cr_pr_top_link_1?ie=UTF8&showViewpoints=0&sortBy=byRankDescending'
+#review_data = get_review_data(affc_first_url, True)
+#write_review_data_to_file(review_data, "affc_review_data.txt")
+
+review_data = read_review_data_from_file("affc_review_data.txt")
 print("Num reviews:", len(review_data))
-write_review_data_to_file(review_data, "affc_review_data.txt")
+print("Weighted score:", get_weighted_score(review_data, test_weight_func))
